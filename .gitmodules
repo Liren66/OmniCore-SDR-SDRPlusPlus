@@ -1,0 +1,3 @@
+[submodule "source_modules/omnicore_source/omnicore-host"]
+	path = source_modules/omnicore_source/omnicore-host
+	url = https://github.com/Liren66/OmniCore-SDR-Host.git

@@ -24,6 +24,7 @@ option(OPT_BUILD_HYDRASDR_SOURCE "Build HydraSDR Source Module (Dependencies: li
 option(OPT_BUILD_KCSDR_SOURCE "Build KCSDR Source Module (Dependencies: libkcsdr)" OFF)
 option(OPT_BUILD_LIMESDR_SOURCE "Build LimeSDR Source Module (Dependencies: liblimesuite)" OFF)
 option(OPT_BUILD_NETWORK_SOURCE "Build Network Source Module (no dependencies required)" ON)
+option(OPT_BUILD_OMNICORE_SOURCE "Build OmniCore SDR Source Module (Dependencies: libusb on Linux/Android; OmniCore Host is built from the omnicore-host submodule)" ON)
 option(OPT_BUILD_PERSEUS_SOURCE "Build Perseus Source Module (Dependencies: libperseus-sdr)" OFF)
 option(OPT_BUILD_PLUTOSDR_SOURCE "Build PlutoSDR Source Module (Dependencies: libiio, libad9361)" ON)
 option(OPT_BUILD_RFNM_SOURCE "Build RFNM Source Module (Dependencies: librfnm)" OFF)
@@ -112,6 +113,10 @@ endif()
 
 # Configure toolchain for android
 if (ANDROID)
+    # Prefix holding the Android builds of the dependencies (<root>/<abi>/{include,lib})
+    set(SDR_KIT_ROOT "/sdr-kit" CACHE PATH "Android dependency kit root")
+    # 16 KB page compatibility for Android 15+ devices
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
     set(CMAKE_SHARED_LINKER_FLAGS
         "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate"
     )
@@ -183,6 +188,10 @@ endif (OPT_BUILD_LIMESDR_SOURCE)
 if (OPT_BUILD_NETWORK_SOURCE)
 add_subdirectory("source_modules/network_source")
 endif (OPT_BUILD_NETWORK_SOURCE)
+
+if (OPT_BUILD_OMNICORE_SOURCE)
+add_subdirectory("source_modules/omnicore_source")
+endif (OPT_BUILD_OMNICORE_SOURCE)
 
 if (OPT_BUILD_PERSEUS_SOURCE)
 add_subdirectory("source_modules/perseus_source")

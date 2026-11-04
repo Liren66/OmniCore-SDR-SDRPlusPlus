@@ -189,6 +189,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["moduleInstances"]["LimeSDR Source"]["enabled"] = true;
     defConfig["moduleInstances"]["Network Source"]["module"] = "network_source";
     defConfig["moduleInstances"]["Network Source"]["enabled"] = true;
+    defConfig["moduleInstances"]["OmniCore SDR Source"]["module"] = "omnicore_source";
+    defConfig["moduleInstances"]["OmniCore SDR Source"]["enabled"] = true;
     defConfig["moduleInstances"]["PerseusSDR Source"]["module"] = "perseus_source";
     defConfig["moduleInstances"]["PerseusSDR Source"]["enabled"] = true;
     defConfig["moduleInstances"]["PlutoSDR Source"]["module"] = "plutosdr_source";
@@ -247,7 +249,7 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["manualOffset"] = 0.0;
     defConfig["showMenu"] = true;
     defConfig["showWaterfall"] = true;
-    defConfig["source"] = "";
+    defConfig["source"] = "OmniCore SDR";
     defConfig["decimation"] = 1;
     defConfig["iqCorrection"] = false;
     defConfig["invertIQ"] = false;
@@ -295,14 +297,9 @@ int sdrpp_main(int argc, char* argv[]) {
     int modCount = 0;
     core::configManager.conf["modules"] = json::array();
 
-    core::configManager.conf["modules"][modCount++] = "airspy_source.so";
-    core::configManager.conf["modules"][modCount++] = "airspyhf_source.so";
-    core::configManager.conf["modules"][modCount++] = "hackrf_source.so";
+    core::configManager.conf["modules"][modCount++] = "omnicore_source.so";
     core::configManager.conf["modules"][modCount++] = "hermes_source.so";
-    core::configManager.conf["modules"][modCount++] = "hydrasdr_source.so";
-    core::configManager.conf["modules"][modCount++] = "plutosdr_source.so";
     core::configManager.conf["modules"][modCount++] = "rfspace_source.so";
-    core::configManager.conf["modules"][modCount++] = "rtl_sdr_source.so";
     core::configManager.conf["modules"][modCount++] = "rtl_tcp_source.so";
     core::configManager.conf["modules"][modCount++] = "sdrpp_server_source.so";
     core::configManager.conf["modules"][modCount++] = "spyserver_source.so";
@@ -310,7 +307,6 @@ int sdrpp_main(int argc, char* argv[]) {
     core::configManager.conf["modules"][modCount++] = "network_sink.so";
     core::configManager.conf["modules"][modCount++] = "audio_sink.so";
 
-    core::configManager.conf["modules"][modCount++] = "m17_decoder.so";
     core::configManager.conf["modules"][modCount++] = "meteor_demodulator.so";
     core::configManager.conf["modules"][modCount++] = "radio.so";
 
@@ -325,6 +321,22 @@ int sdrpp_main(int argc, char* argv[]) {
         if (!core::configManager.conf.contains(item.key())) {
             flog::info("Missing key in config {0}, repairing", item.key());
             core::configManager.conf[item.key()] = defConfig[item.key()];
+        }
+    }
+
+    // Configs made by SDR++ before this fork have no OmniCore source instance: add it
+    {
+        bool hasOmniCore = false;
+        for (auto const& inst : core::configManager.conf["moduleInstances"].items()) {
+            const json& v = inst.value();
+            if ((v.is_object() && v.contains("module") && v["module"] == "omnicore_source") || (v.is_string() && v == "omnicore_source")) {
+                hasOmniCore = true;
+                break;
+            }
+        }
+        if (!hasOmniCore && !core::configManager.conf["moduleInstances"].contains("OmniCore SDR Source")) {
+            flog::info("Adding the OmniCore SDR source to the module instances");
+            core::configManager.conf["moduleInstances"]["OmniCore SDR Source"] = defConfig["moduleInstances"]["OmniCore SDR Source"];
         }
     }
 

@@ -33,6 +33,11 @@ add_library(sdrpp_core SHARED ${SRC} ${BACKEND_SRC})
 # Set compiler options
 target_compile_options(sdrpp_core PRIVATE ${SDRPP_COMPILER_FLAGS})
 
+# MinGW: the explicit dllexports in module.h would otherwise hide every other core symbol from the modules
+if (MINGW)
+    target_link_options(sdrpp_core PRIVATE -Wl,--export-all-symbols)
+endif (MINGW)
+
 # Set the install prefix
 target_compile_definitions(sdrpp_core PUBLIC INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 
@@ -103,14 +108,14 @@ if (MSVC)
     target_link_libraries(sdrpp_core PUBLIC zstd::libzstd_shared)
 elseif (ANDROID)
     target_include_directories(sdrpp_core PUBLIC
-        /sdr-kit/${ANDROID_ABI}/include
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/include
         ${ANDROID_NDK}/sources/android/native_app_glue
     )
 
     target_link_libraries(sdrpp_core PUBLIC
-        /sdr-kit/${ANDROID_ABI}/lib/libvolk.so
-        /sdr-kit/${ANDROID_ABI}/lib/libfftw3f.so
-        /sdr-kit/${ANDROID_ABI}/lib/libzstd.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libvolk.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libfftw3f.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libzstd.so
         android
         EGL
         GLESv3
@@ -148,6 +153,11 @@ else()
         ${VOLK_LIBRARIES}
         ${LIBZSTD_LIBRARIES}
     )
+
+    # WinSock2 and adapter list for MinGW builds (MSVC uses the branch above)
+    if (WIN32)
+        target_link_libraries(sdrpp_core PUBLIC ws2_32 iphlpapi)
+    endif (WIN32)
 
     if (NOT USE_INTERNAL_LIBCORRECT)
         pkg_check_modules(CORRECT REQUIRED libcorrect)
