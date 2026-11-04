@@ -1,9 +1,39 @@
 #include "command_args.h"
 #include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#include <stdlib.h>
+
+// The program's folder becomes the working directory, so that the relative default module and resource directories
+// (./modules, ./res) are found however SDR++ is started. Configuration stays there too (portable ZIP), unless that
+// folder is not writable (installed under Program Files): then it goes to %APPDATA%\OmniCore-SDR-SDRPlusPlus.
+static std::string windowsDefaultRoot() {
+    wchar_t exe[MAX_PATH * 4];
+    DWORD len = GetModuleFileNameW(NULL, exe, sizeof(exe) / sizeof(exe[0]));
+    if (len == 0 || len >= sizeof(exe) / sizeof(exe[0])) { return "."; }
+    std::filesystem::path dir = std::filesystem::path(exe).parent_path();
+    SetCurrentDirectoryW(dir.c_str());
+
+    std::filesystem::path probe = dir / L".sdrpp_write_test";
+    HANDLE h = CreateFileW(probe.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                           FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    if (h != INVALID_HANDLE_VALUE) {
+        CloseHandle(h);
+        return ".";
+    }
+
+    const char* appData = getenv("APPDATA");
+    if (!appData || !*appData) { return "."; }
+    std::string root = std::string(appData) + "\\OmniCore-SDR-SDRPlusPlus";
+    std::error_code ec;
+    std::filesystem::create_directories(root, ec);
+    return root;
+}
+#endif
 
 void CommandArgsParser::defineAll() {
 #if defined(_WIN32)
-        std::string root = ".";
+        std::string root = windowsDefaultRoot();
         define('c', "con", "Show console on Windows");
 #elif defined(IS_MACOS_BUNDLE)
         std::string root = (std::string)getenv("HOME") + "/Library/Application Support/sdrpp";

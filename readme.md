@@ -12,7 +12,8 @@ This is an independent fork of SDR++ with a native OmniCore SDR (AD9361) source 
 
 | 发布包 | 平台 | 说明 |
 | --- | --- | --- |
-| `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64.zip` | Windows 10/11 x64 | 解压即用，含 OmniCore Host 0.5.0 |
+| `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64-setup.exe` | Windows 10/11 x64 | 安装版，可同时安装 USB 驱动，含 OmniCore Host 0.5.0 |
+| `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64.zip` | Windows 10/11 x64 | 免安装版，解压即用 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-ubuntu-noble-amd64.deb` | Ubuntu 24.04 x86-64 | 含 `libomnicore` 与 udev 规则 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-android-arm64-v8a.apk` | Android 9+ ARM64，需 USB Host/OTG | USB 直连，无需 root |
 
@@ -37,9 +38,11 @@ SDR++ 只做接收，本分支不提供 TX。发射端在每次配置时均设�
 
 ## Windows 使用
 
-1. 设备需使用 libusbK 驱动。安装 [OmniCore Host](https://github.com/Liren66/OmniCore-SDR-Host) 后运行 `och-driver install`（或开始菜单中的 “Install OmniCoreSDR driver”），用 `och-driver check` 检查。已经能用 `och find` 找到设备的电脑无需重复安装。
-2. 解压 ZIP，运行 `sdrpp.exe`。程序目录内含 `omnicore.dll`、`libusbK.dll` 和全部运行库，配置保存在程序目录。
-3. 同一时刻只能有一个程序打开设备；使用前请关闭 `och`、OnAir 等其他占用设备的程序。
+**安装版**：运行 `…-windows-x64-setup.exe`（需管理员权限），默认安装到 `C:\Program Files\OmniCore-SDR-SDRPlusPlus`。保留 “Install/check the libusbK driver” 选项时，安装程序会用 OmniCore Host 的驱动助手为 OmniCore SDR（VID 1A86 / PID 5537）安装 libusbK 驱动，不改动其他 USB 设备。安装时未连接设备也可以完成安装，之后连接设备并在开始菜单运行 “Install OmniCore SDR driver”。安装版的设置保存在 `%APPDATA%\OmniCore-SDR-SDRPlusPlus`，卸载时保留设置和驱动。
+
+**免安装版**：解压 ZIP，运行 `sdrpp.exe`，设置保存在程序目录。驱动需另行安装：使用安装版的驱动选项，或 [OmniCore Host](https://github.com/Liren66/OmniCore-SDR-Host) 的 `och-driver install`。已经能用 `och find` 找到设备的电脑无需重复安装。
+
+两种版本都包含 `omnicore.dll`、`libusbK.dll` 和全部运行库。同一时刻只能有一个程序打开设备；使用前请关闭 `och`、OnAir 等其他占用设备的程序。
 
 Windows 版用 MSYS2 UCRT64 (GCC) 编译。包内带 RTL-SDR、HackRF 及网络类源（rtl_tcp、SpyServer、SDR++ Server 等）；Airspy、PlutoSDR、SoapySDR 等需要额外驱动库的模块未打包。
 
@@ -79,6 +82,8 @@ cmake -S . -B build/win -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DOMNICORE_LIBUSBK_DLL=<libusbK-3.1.0.0 amd64 libusbK.dll>
 cmake --build build/win
 bash packaging/windows/package.sh build/win release
+# 安装版（Inno Setup 6.2.2 与驱动助手取自已构建的 OmniCore Host 目录）
+powershell -NoProfile -File packaging/windows/build_installer.ps1 -HostDir ../OmniCore-SDR-Host
 ```
 
 `libusbK.dll` 来自 [libusbK V3.1.0.0](https://github.com/mcuee/libusbk/releases/tag/V3.1.0.0)，不在 git 中。必须在 UCRT64 环境（`MSYSTEM=UCRT64`）中配置，否则 pkg-config 可能混入 mingw64 的头文件。打包脚本会检查所有 DLL 导入能否解析。
@@ -108,13 +113,13 @@ cd android && ./gradlew -PsdrKitRoot=$PWD/../kit assembleRelease
 
 - `source_modules/omnicore_source`：OmniCore SDR 源模块与 OmniCore Host 子模块。
 - `core`：默认加入 OmniCore SDR 源，并把它设为默认信号源；旧配置自动补上；Android 识别 VID `1a86` / PID `5537`。
-- Windows：支持 MinGW / MSYS2 编译（链接 ws2_32/iphlpapi，导出 core 符号，替换已移除的 `std::wstring_convert`）。
+- Windows：支持 MinGW / MSYS2 编译（链接 ws2_32/iphlpapi，导出 core 符号，替换已移除的 `std::wstring_convert`）；启动时切换到程序目录，程序目录不可写（安装版）时设置改存 `%APPDATA%\OmniCore-SDR-SDRPlusPlus`。
 - Android：工程升级到 AGP 8.7 / NDK 27，依赖目录可配置（`SDR_KIT_ROOT`），16 KB 页对齐，USB 授权优先 OmniCore 设备。
-- 打包脚本：`packaging/windows`、`packaging/linux`、`android/tools`。
+- 打包脚本：`packaging/windows`（ZIP 与 Inno Setup 安装版）、`packaging/linux`、`android/tools`。
 
 ## 测试情况
 
-- **Windows 11**，OmniCore SDR（固件 `SDK_CMD_1.0_20261026_VCXO`，USB 3 SuperSpeed）：FM 广播段实收，瀑布图正常；4 / 56 / 61.44 MSPS 各连续接收 20 – 30 s，主机与设备溢出均为 0；运行中调频、改增益正常；4 次启停后正常退出。
+- **Windows 11**，OmniCore SDR（固件 `SDK_CMD_1.0_20261026_VCXO`，USB 3 SuperSpeed）：FM 广播段实收，瀑布图正常；4 / 56 / 61.44 MSPS 各连续接收 20 – 30 s，主机与设备溢出均为 0；运行中调频、改增益正常；4 次启停后正常退出。安装版静默安装后从其他工作目录启动：设置写入 `%APPDATA%`，打开设备连续接收 22 s 后正常退出。
 - **Ubuntu 24.04**：`.deb` 安装、依赖解析、图形界面启动及 OmniCore 模块加载正常。该机未连接设备，未做射频实测。
 - **Android**：APK 已编译、签名，并检查了 16 KB 对齐与模块打包；尚未在手机上连接设备实测。
 
