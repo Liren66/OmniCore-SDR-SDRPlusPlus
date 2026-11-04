@@ -31,7 +31,12 @@ endif (OPT_BACKEND_ANDROID)
 add_library(sdrpp_core SHARED ${SRC} ${BACKEND_SRC})
 
 # Set compiler options
-target_compile_options(sdrpp_core PRIVATE ${SDRPP_COMPILER_FLAGS})
+if (ANDROID)
+    # The NDK's native_app_glue is C: the C++ flags (-std=c++17) only for C++ files
+    target_compile_options(sdrpp_core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${SDRPP_COMPILER_FLAGS}>")
+else ()
+    target_compile_options(sdrpp_core PRIVATE ${SDRPP_COMPILER_FLAGS})
+endif ()
 
 # MinGW: the explicit dllexports in module.h would otherwise hide every other core symbol from the modules
 if (MINGW)

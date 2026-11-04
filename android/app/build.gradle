@@ -1,76 +1,133 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// Version from core/src/version.h (same as SDR++)
+def sdrppVersion = (file('../../core/src/version.h').text =~ /VERSION_STR "([0-9.]+)"/)[0][1]
+def vParts = sdrppVersion.tokenize('.').collect { it as int }
+
+// Native dependencies built by android/tools/build_deps.sh (<kit>/arm64-v8a/{include,lib})
+def sdrKitRoot = project.findProperty('sdrKitRoot') ?: System.getenv('SDR_KIT_ROOT') ?: '/sdr-kit'
+
+// Release signing: -PkeystoreProperties=/path/keystore.properties (outside git) with storeFile, storePassword, keyAlias,
+// keyPassword. Without it, release builds use the debug key.
+def ksProps = new Properties()
+def ksPath = project.findProperty('keystoreProperties') ?: System.getenv('SDRPP_KEYSTORE_PROPERTIES')
+def ksFile = ksPath ? file(ksPath) : null
+if (ksFile != null && ksFile.exists()) { ksFile.withInputStream { ksProps.load(it) } }
+def canSign = ksProps.getProperty('storeFile') != null
 
 android {
-    compileSdkVersion 28
-    buildToolsVersion "30.0.3"
-    ndkVersion "25.1.8937393"
+    namespace 'org.sdrpp.sdrpp'
+    compileSdk 35
+    ndkVersion '27.2.12479018'
+
     defaultConfig {
-        applicationId "org.sdrpp.sdrpp"
-        minSdkVersion 28
-        targetSdkVersion 28
-        versionCode 1
-        versionName "1.2.1"
+        // Separate from upstream SDR++ so both can be installed
+        applicationId 'io.github.liren66.omnicore.sdrpp'
+        minSdk 28
+        targetSdk 28
+        versionCode vParts[0] * 10000 + vParts[1] * 100 + vParts[2]
+        versionName sdrppVersion
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
 
         externalNativeBuild {
             cmake {
-                arguments "-DOPT_BACKEND_GLFW=OFF", "-DOPT_BACKEND_ANDROID=ON", "-DOPT_BUILD_SOAPY_SOURCE=OFF", "-DOPT_BUILD_ANDROID_AUDIO_SINK=ON", "-DOPT_BUILD_AUDIO_SINK=OFF", "-DOPT_BUILD_DISCORD_PRESENCE=OFF", "-DOPT_BUILD_M17_DECODER=ON", "-DOPT_BUILD_PLUTOSDR_SOURCE=ON", "-DOPT_BUILD_AUDIO_SOURCE=OFF", "-DOPT_BUILD_HYDRASDR_SOURCE=ON"
+                arguments "-DSDR_KIT_ROOT=${sdrKitRoot}",
+                        "-DOPT_BACKEND_GLFW=OFF", "-DOPT_BACKEND_ANDROID=ON",
+                        "-DOPT_BUILD_OMNICORE_SOURCE=ON",
+                        "-DOPT_BUILD_AIRSPY_SOURCE=OFF", "-DOPT_BUILD_AIRSPYHF_SOURCE=OFF", "-DOPT_BUILD_HACKRF_SOURCE=OFF",
+                        "-DOPT_BUILD_HYDRASDR_SOURCE=OFF", "-DOPT_BUILD_PLUTOSDR_SOURCE=OFF", "-DOPT_BUILD_RTL_SDR_SOURCE=OFF",
+                        "-DOPT_BUILD_SOAPY_SOURCE=OFF", "-DOPT_BUILD_AUDIO_SOURCE=OFF", "-DOPT_BUILD_FILE_SOURCE=OFF",
+                        "-DOPT_BUILD_AUDIO_SINK=OFF", "-DOPT_BUILD_ANDROID_AUDIO_SINK=ON",
+                        "-DOPT_BUILD_M17_DECODER=OFF", "-DOPT_BUILD_DISCORD_PRESENCE=OFF",
+                        "-DOPT_BUILD_SPECTRAN_HTTP_SOURCE=OFF"
             }
         }
     }
 
     signingConfigs {
         debug {
-            storeFile file("debug.keystore")
-            storePassword "android"
-            keyAlias "androiddebugkey"
-            keyPassword "android"
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        if (canSign) {
+            release {
+                def sf = new File(ksProps.getProperty('storeFile'))
+                storeFile sf.isAbsolute() ? sf : new File(ksFile.parentFile, ksProps.getProperty('storeFile'))
+                storePassword ksProps.getProperty('storePassword')
+                keyAlias ksProps.getProperty('keyAlias')
+                keyPassword ksProps.getProperty('keyPassword') ?: ksProps.getProperty('storePassword')
+            }
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            signingConfig canSign ? signingConfigs.release : signingConfigs.debug
         }
         debug {
             signingConfig signingConfigs.debug
         }
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
     externalNativeBuild {
         cmake {
-            version "3.18.1"
-            path "../../CMakeLists.txt"
+            version '3.31.5'
+            path '../../CMakeLists.txt'
         }
     }
 
     sourceSets {
         main {
             assets.srcDirs += ['assets']
+            // The prebuilt dependencies are packed next to the libraries CMake builds
+            jniLibs.srcDirs += ["${sdrKitRoot}/jniLibs"]
         }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    lint {
+        // targetSdk 28 is kept on purpose (the NativeActivity USB flow predates the newer receiver/PendingIntent rules)
+        checkReleaseBuilds false
+        abortOnError false
     }
 }
 
-task deleteTempAssets (type: Delete) {
+tasks.register('deleteTempAssets', Delete) {
     delete 'assets'
 }
 
-task copyResources(type: Copy) {
+tasks.register('copyResources', Copy) {
     description = 'Copy resources...'
     from '../../root/'
     into 'assets/'
     include('**/*')
+    dependsOn 'deleteTempAssets'
 }
 
-repositories {
-    mavenCentral()
-}
+preBuild.dependsOn copyResources
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
 }
-
-copyResources.dependsOn deleteTempAssets
-preBuild.dependsOn copyResources

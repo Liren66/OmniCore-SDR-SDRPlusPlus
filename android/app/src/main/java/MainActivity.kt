@@ -27,23 +27,19 @@ import java.io.*;
 
 private const val ACTION_USB_PERMISSION = "org.sdrpp.sdrpp.USB_PERMISSION";
 
+// OmniCore SDR (CH32H417 USB bridge)
+private const val OMNICORE_VID = 0x1a86;
+private const val OMNICORE_PID = 0x5537;
+
 private val usbReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (ACTION_USB_PERMISSION == intent.action) {
             synchronized(this) {
                 var _this = context as MainActivity;
-                _this.SDR_device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    _this.SDR_conn = _this.usbManager!!.openDevice(_this.SDR_device);
-                    
-                    // Save SDR info
-                    _this.SDR_VID = _this.SDR_device!!.getVendorId();
-                    _this.SDR_PID = _this.SDR_device!!.getProductId()
-                    _this.SDR_FD = _this.SDR_conn!!.getFileDescriptor();
+                val dev : UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                if (dev != null && intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                    _this.useDevice(dev);
                 }
-                
-                // Whatever the hell this does
-                context.unregisterReceiver(this);
 
                 // Hide again the system bars
                 _this.hideSystemBars();
@@ -83,22 +79,52 @@ class MainActivity : NativeActivity() {
 
         // TODO: Have the main code wait until these two permissions are available
 
-        // Register events
+        // Register events (the receiver stays registered: the radio may be plugged in later)
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager;
-        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
         val filter = IntentFilter(ACTION_USB_PERMISSION)
         registerReceiver(usbReceiver, filter)
 
-        // Get permission for all USB devices
-        val devList = usbManager!!.getDeviceList();
-        for ((name, dev) in devList) {
-            usbManager!!.requestPermission(dev, permissionIntent);
-        }
+        // Get permission for the radios connected now (the OmniCore SDR first)
+        requestRadios(intent);
 
         // Ask for internet permission
         checkAndAsk(Manifest.permission.INTERNET);
 
         super.onCreate(savedInstanceState)
+    }
+
+    // The app (singleTask) was asked to open a radio plugged in while it runs
+    public override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        requestRadios(intent);
+    }
+
+    // Opens the device and publishes its descriptor to the native code (SDR_FD / SDR_VID / SDR_PID)
+    public fun useDevice(dev: UsbDevice) {
+        if (SDR_device != null && SDR_device!!.getDeviceName() == dev.getDeviceName() && SDR_FD >= 0) { return; }
+        val conn = usbManager!!.openDevice(dev) ?: return;
+        SDR_conn?.close();
+        SDR_device = dev;
+        SDR_conn = conn;
+        SDR_VID = dev.getVendorId();
+        SDR_PID = dev.getProductId();
+        SDR_FD = conn.getFileDescriptor();
+        Log.i(TAG, "USB device " + dev.getDeviceName() + " open, fd " + SDR_FD);
+    }
+
+    fun requestRadios(intent: Intent?) {
+        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE)
+        val devs = ArrayList(usbManager!!.getDeviceList().values);
+        // Launched by plugging in a radio: Android already granted access to it
+        val attached : UsbDevice? = intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+        if (attached != null && usbManager!!.hasPermission(attached)) { useDevice(attached); }
+        devs.sortBy { if (it.getVendorId() == OMNICORE_VID && it.getProductId() == OMNICORE_PID) 0 else 1 }
+        for (dev in devs) {
+            if (usbManager!!.hasPermission(dev)) { useDevice(dev); break; }
+            usbManager!!.requestPermission(dev, permissionIntent);
+            break;
+        }
     }
 
     public override fun onResume() {
@@ -147,7 +173,7 @@ class MainActivity : NativeActivity() {
     }
 
     public fun extractDir(aman: AssetManager, local: String, rsrc: String): Int {
-        val flist = aman.list(rsrc);
+        val flist = aman.list(rsrc) ?: arrayOf<String>();
         var ecount = 0;
         for (fp in flist) {
             val lpath = local + "/" + fp;

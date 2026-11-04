@@ -87,8 +87,11 @@ if(HAVE_SSE)
 endif()
 
 add_subdirectory(util)
+# The Android Gradle plugin builds every target, EXCLUDE_FROM_ALL or not: no developer tools there
+if (NOT ANDROID)
 add_subdirectory(tests)
 add_subdirectory(tools)
+endif ()
 # add_subdirectory(benchmarks)
 
 # install(TARGETS correct correct_static

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OmniCore SDR (CH32H417 USB bridge) -->
+    <usb-device vendor-id="6790" product-id="21815" />
+</resources>
