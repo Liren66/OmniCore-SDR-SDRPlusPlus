@@ -36,7 +36,8 @@ add_library(omnicore SHARED
     ${_och}/src/core/api.cpp ${_och}/src/core/device.cpp ${_och}/src/core/configuration.cpp
     ${_och}/src/core/reconfigure.cpp ${_och}/src/core/stream.cpp ${_och}/src/core/rf.cpp
     ${_och}/src/core/power.cpp ${_och}/src/core/board.cpp ${_och}/src/core/firmware.cpp
-    ${_och}/src/dsp/codec.cpp ${_och}/src/dsp/framer.cpp)
+    ${_och}/src/core/timebase.cpp ${_och}/src/core/sync.cpp
+    ${_och}/src/dsp/codec.cpp ${_och}/src/dsp/frame.cpp)
 target_include_directories(omnicore PUBLIC "${_och}/include" PRIVATE "${_och}/src")
 target_compile_definitions(omnicore PRIVATE OCH_BUILD)
 set_target_properties(omnicore PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
@@ -74,7 +75,7 @@ else ()
     pkg_check_modules(OCH_LIBUSB REQUIRED IMPORTED_TARGET libusb-1.0>=1.0.21)
     target_link_libraries(omnicore PRIVATE PkgConfig::OCH_LIBUSB)
     set_target_properties(omnicore PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES
-        VERSION 0.5.0 SOVERSION 1)
+        VERSION 0.7.1 SOVERSION 1)
     install(TARGETS omnicore LIBRARY DESTINATION lib)
     if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         # USB access for normal users
