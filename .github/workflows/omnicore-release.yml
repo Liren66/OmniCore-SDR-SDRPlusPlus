@@ -29,7 +29,10 @@ jobs:
           $runtime = Get-Content -Raw SOURCES.json | ConvertFrom-Json | Where-Object name -eq 'libusbK-3.1.0.0-bin.7z'
           Invoke-WebRequest $runtime.url -OutFile $runtime.name
           if ((Get-FileHash $runtime.name).Hash -ne $runtime.sha256) { throw 'USB runtime checksum mismatch' }
-          7z x -y $runtime.name -olibusbK-3.1.0.0
+          7z x -y $runtime.name '-olibusbK-3.1.0.0'
+          if ($LASTEXITCODE -or !(Test-Path 'libusbK-3.1.0.0/libusbK-3.1.0.0-bin/bin/dll/amd64/libusbK.dll')) {
+            throw 'Missing extracted libusbK runtime'
+          }
       - name: Build and package
         shell: msys2 {0}
         run: |
@@ -64,8 +67,7 @@ jobs:
           persist-credentials: false
       - name: Install build dependencies
         run: |
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install -y build-essential cmake pkg-config libfftw3-dev libglfw3-dev \
+          bash packaging/linux/install_ci_deps.sh build-essential cmake pkg-config libfftw3-dev libglfw3-dev \
             libvolk-dev libzstd-dev librtaudio-dev libusb-1.0-0-dev libairspy-dev libairspyhf-dev libhackrf-dev \
             librtlsdr-dev libiio-dev libad9361-dev libcodec2-dev
       - name: Build and inspect the package
@@ -158,7 +160,7 @@ jobs:
       - name: Install Android toolchain
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.31.5'
-          sudo apt-get -o Acquire::Retries=3 install -y patchelf python3-mako
+          bash packaging/linux/install_ci_deps.sh patchelf python3-mako
       - name: Build native dependencies
         run: |
           mkdir archives
