@@ -1,6 +1,6 @@
 # Builds the Windows x64 installer (Inno Setup) from the folder package.sh made.
 #   powershell -NoProfile -File packaging/windows/build_installer.ps1 -HostDir ..\OmniCore-SDR-Host
-# HostDir: an OmniCore Host checkout with its built driver assistant (tools\installer\och-driver.exe, libwdi.dll),
+# HostDir: an OmniCore Host checkout with its built driver assistant (packaging\windows\driver\och-driver.exe, libwdi.dll),
 # the libusbK / libwdi licenses and source archives (third_party\driver) and the bundled Inno Setup 6.2.2 compiler.
 param(
     [Parameter(Mandatory = $true)][string]$HostDir,
@@ -14,13 +14,13 @@ $version = (Select-String -Path (Join-Path $src 'core\src\version.h') -Pattern '
 if (!$OutputDir) { $OutputDir = Join-Path $src 'release' }
 if (!$PackageDir) { $PackageDir = Join-Path $OutputDir "OmniCore-SDR-SDRPlusPlus-$version-windows-x64" }
 $HostDir = (Resolve-Path $HostDir).Path
-if (!$InnoCompiler) { $InnoCompiler = Join-Path $HostDir 'tools\installer\inno-6.2.2\app\ISCC.exe' }
+if (!$InnoCompiler) { $InnoCompiler = Join-Path $HostDir 'third_party\inno-6.2.2\app\ISCC.exe' }
 foreach ($f in @($InnoCompiler, (Join-Path $PackageDir 'sdrpp.exe'), (Join-Path $PackageDir 'omnicore.dll'), (Join-Path $PackageDir 'modules\omnicore_source.dll'))) {
     if (-not (Test-Path -LiteralPath $f)) { throw "Missing: $f" }
 }
 
 # Driver assistant with its licenses and the corresponding sources (libwdi is LGPL)
-$tools = Join-Path $HostDir 'tools\installer'
+$tools = Join-Path $HostDir 'packaging\windows\driver'
 $driver = Join-Path $HostDir 'third_party\driver'
 $stage = Join-Path ([IO.Path]::GetTempPath()) ("sdrpp-driver-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Force (Join-Path $stage 'licenses\libusbK'), (Join-Path $stage 'licenses\libwdi'), (Join-Path $stage 'licenses\sources') | Out-Null

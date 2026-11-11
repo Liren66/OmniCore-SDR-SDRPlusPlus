@@ -19,7 +19,7 @@ if (ANDROID)
     set(_och "${CMAKE_CURRENT_BINARY_DIR}/omnicore-host-android")
     file(REMOVE_RECURSE "${_och}")
     file(COPY "${OMNICORE_HOST_DIR}/src" "${OMNICORE_HOST_DIR}/include" DESTINATION "${_och}")
-    foreach (_file src/core/api.cpp src/core/device.cpp src/transport/libusb.hpp)
+    foreach (_file src/capi/device.cpp src/transport/posix/libusb_link.cpp)
         file(READ "${_och}/${_file}" _text)
         string(REPLACE "\r\n" "\n" _text "${_text}")
         file(WRITE "${_och}/${_file}" "${_text}")
@@ -33,11 +33,18 @@ if (ANDROID)
 endif ()
 
 add_library(omnicore SHARED
-    ${_och}/src/core/api.cpp ${_och}/src/core/device.cpp ${_och}/src/core/configuration.cpp
-    ${_och}/src/core/reconfigure.cpp ${_och}/src/core/stream.cpp ${_och}/src/core/rf.cpp
-    ${_och}/src/core/power.cpp ${_och}/src/core/board.cpp ${_och}/src/core/firmware.cpp
-    ${_och}/src/core/timebase.cpp ${_och}/src/core/sync.cpp
-    ${_och}/src/dsp/codec.cpp ${_och}/src/dsp/frame.cpp)
+    ${_och}/src/capi/device.cpp ${_och}/src/capi/stream.cpp ${_och}/src/capi/rf.cpp
+    ${_och}/src/capi/board.cpp ${_och}/src/capi/firmware.cpp ${_och}/src/capi/timebase.cpp ${_och}/src/capi/sync.cpp
+    ${_och}/src/core/device.cpp ${_och}/src/core/control.cpp ${_och}/src/core/configuration.cpp
+    ${_och}/src/core/reconfigure.cpp ${_och}/src/core/stream.cpp ${_och}/src/core/stream_io.cpp
+    ${_och}/src/core/rf.cpp ${_och}/src/core/power.cpp ${_och}/src/core/board.cpp
+    ${_och}/src/core/firmware.cpp ${_och}/src/core/timebase.cpp ${_och}/src/core/sync.cpp
+    ${_och}/src/dsp/codec.cpp ${_och}/src/protocol/frame.cpp)
+if (WIN32)
+    target_sources(omnicore PRIVATE ${_och}/src/transport/win/libusbk_link.cpp)
+else ()
+    target_sources(omnicore PRIVATE ${_och}/src/transport/posix/libusb_link.cpp)
+endif ()
 target_include_directories(omnicore PUBLIC "${_och}/include" PRIVATE "${_och}/src")
 target_compile_definitions(omnicore PRIVATE OCH_BUILD)
 set_target_properties(omnicore PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
@@ -75,11 +82,14 @@ else ()
     pkg_check_modules(OCH_LIBUSB REQUIRED IMPORTED_TARGET libusb-1.0>=1.0.21)
     target_link_libraries(omnicore PRIVATE PkgConfig::OCH_LIBUSB)
     set_target_properties(omnicore PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES
-        VERSION 0.7.1 SOVERSION 1)
+        VERSION 0.7.2 SOVERSION 1)
     install(TARGETS omnicore LIBRARY DESTINATION lib)
+    if (APPLE)
+        target_link_libraries(omnicore PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    endif ()
     if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         # USB access for normal users
-        install(FILES "${OMNICORE_HOST_DIR}/packaging/60-omnicore.rules" DESTINATION lib/udev/rules.d)
+        install(FILES "${OMNICORE_HOST_DIR}/packaging/linux/60-omnicore.rules" DESTINATION lib/udev/rules.d)
     endif ()
 endif ()
 

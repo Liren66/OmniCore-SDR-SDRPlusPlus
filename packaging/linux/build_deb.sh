@@ -33,8 +33,8 @@ elfs=$(find "$PKG" -type f -exec sh -c 'file -b "$1" | grep -q ELF && echo "$1"'
 needed=$(for f in $elfs; do objdump -p "$f" | awk '/NEEDED/ {print $2}'; done | sort -u)
 deps=$(for n in $needed; do
         [ -n "$(find "$PKG" -name "$n" -print -quit)" ] && continue   # one of ours
-        path=$(ldconfig -p | awk -v n="$n" '$1 == n && /x86-64|AArch64|64bit/ {print $NF; exit}')
-        [ -z "$path" ] && path=$(ldconfig -p | awk -v n="$n" '$1 == n {print $NF; exit}')
+        path=$(ldconfig -p | awk -v n="$n" '$1 == n && /x86-64|AArch64|64bit/ && !seen++ {print $NF}')
+        [ -z "$path" ] && path=$(ldconfig -p | awk -v n="$n" '$1 == n && !seen++ {print $NF}')
         [ -z "$path" ] && { echo "unresolved: $n" >&2; continue; }
         dpkg -S "$(readlink -f "$path")" 2>/dev/null || dpkg -S "$path"
     done | cut -d: -f1 | sort -u | grep -v '^libc6$' | paste -sd, | sed 's/,/, /g')
@@ -42,7 +42,7 @@ deps=$(for n in $needed; do
 mkdir -p "$PKG/DEBIAN"
 cat > "$PKG/DEBIAN/control" <<EOF
 Package: omnicore-sdr-sdrplusplus
-Version: $VERSION
+Version: ${DEB_VERSION:-$VERSION}
 Architecture: $ARCH
 Maintainer: Liren66 <https://github.com/Liren66>
 Homepage: https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus

@@ -1,0 +1,124 @@
+name: OmniCore release builds
+on: workflow_dispatch
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            zip mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-fftw mingw-w64-ucrt-x86_64-glfw mingw-w64-ucrt-x86_64-volk
+            mingw-w64-ucrt-x86_64-zstd mingw-w64-ucrt-x86_64-rtaudio mingw-w64-ucrt-x86_64-libusb
+            mingw-w64-ucrt-x86_64-rtl-sdr mingw-w64-ucrt-x86_64-hackrf
+            mingw-w64-ucrt-x86_64-codec2 mingw-w64-ucrt-x86_64-ntldd
+      - name: Fetch the pinned USB runtime
+        shell: pwsh
+        working-directory: source_modules/omnicore_source/omnicore-host/third_party/driver
+        run: |
+          $runtime = Get-Content -Raw SOURCES.json | ConvertFrom-Json | Where-Object name -eq 'libusbK-3.1.0.0-bin.7z'
+          Invoke-WebRequest $runtime.url -OutFile $runtime.name
+          if ((Get-FileHash $runtime.name).Hash -ne $runtime.sha256) { throw 'USB runtime checksum mismatch' }
+          7z x -y $runtime.name -olibusbK-3.1.0.0
+      - name: Build and package
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cmake -S . -B build/win -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DOPT_BUILD_AIRSPY_SOURCE=OFF -DOPT_BUILD_AIRSPYHF_SOURCE=OFF -DOPT_BUILD_PLUTOSDR_SOURCE=OFF \
+            -DOPT_BUILD_DISCORD_PRESENCE=OFF -DOPT_BUILD_M17_DECODER=ON
+          cmake --build build/win --parallel 3
+          test -s build/win/libusbK.dll
+          bash packaging/windows/package.sh build/win release
+          echo "UCRT_BIN=$(cygpath -aw /ucrt64/bin)" >> "$GITHUB_ENV"
+      - name: Build driver assistant and installer
+        shell: pwsh
+        run: |
+          $och = 'source_modules/omnicore_source/omnicore-host'
+          & "$och/packaging/windows/driver/build-driver.ps1" -CompilerRoot $env:UCRT_BIN
+          & ./packaging/windows/build_installer.ps1 -HostDir $och -InnoCompiler "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            release/*.zip
+            release/*-setup.exe
+          if-no-files-found: error
+
+  ubuntu:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y build-essential cmake pkg-config libfftw3-dev libglfw3-dev \
+            libvolk-dev libzstd-dev librtaudio-dev libusb-1.0-0-dev libairspy-dev libairspyhf-dev libhackrf-dev \
+            librtlsdr-dev libiio-dev libad9361-dev libcodec2-dev
+      - name: Build and inspect the package
+        run: |
+          upstream=$(sed -n 's/^#define VERSION_STR "\(.*\)"/\1/p' core/src/version.h)
+          och=$(sed -n 's/^#define OCH_VERSION "\(.*\)"/\1/p' source_modules/omnicore_source/omnicore-host/include/omnicore/och.h)
+          DEB_VERSION="$upstream+och$och" bash packaging/linux/build_deb.sh release
+          dpkg-deb -x release/*.deb "$RUNNER_TEMP/pkg"
+          test -s "$RUNNER_TEMP/pkg/usr/lib/libomnicore.so.$och"
+          test -s "$RUNNER_TEMP/pkg/usr/lib/udev/rules.d/60-omnicore.rules"
+          find "$RUNNER_TEMP/pkg" -name omnicore_source.so | grep .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu
+          path: release/*.deb
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android toolchain
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.31.5'
+          sudo apt-get -o Acquire::Retries=3 install -y patchelf python3-mako
+      - name: Build native dependencies
+        run: |
+          mkdir archives
+          cd archives
+          curl -fLsSO --retry 3 https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-1.5.6.tar.gz
+          curl -fLsSO --retry 3 https://www.fftw.org/fftw-3.3.10.tar.gz
+          curl -fLsSO --retry 3 https://github.com/gnuradio/volk/releases/download/v3.1.2/volk-3.1.2.tar.gz
+          curl -fLsSO --retry 3 https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.tar.bz2
+          cd ..
+          PATH="/usr/bin:$PATH" ANDROID_NDK="$ANDROID_HOME/ndk/27.2.12479018" CMAKE="$ANDROID_HOME/cmake/3.31.5/bin/cmake" \
+            bash android/tools/build_deps.sh archives kit
+      - name: Build release APK for offline signing
+        working-directory: android
+        run: |
+          ./gradlew --no-daemon --max-workers=2 -PunsignedRelease -PsdrKitRoot="$GITHUB_WORKSPACE/kit" assembleRelease
+          apk=app/build/outputs/apk/release/app-release-unsigned.apk
+          unzip -Z1 "$apk" | grep -Fx lib/arm64-v8a/libomnicore.so
+          unzip -Z1 "$apk" | grep -Fx lib/arm64-v8a/omnicore_source.so
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "$apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-unsigned
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error

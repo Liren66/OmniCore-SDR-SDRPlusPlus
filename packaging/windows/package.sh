@@ -23,7 +23,7 @@ find "$BUILD/source_modules" "$BUILD/sink_modules" "$BUILD/decoder_modules" "$BU
 # MSYS2 runtime DLLs the program and its modules use
 for f in "$PKG"/*.exe "$PKG"/*.dll "$PKG"/modules/*.dll; do
     ntldd -R "$f" 2>/dev/null | sed -n 's/.*=> \(.*\.dll\) .*/\1/p'
-done | sed 's#[\\]#/#g' | grep -i '/msys64/ucrt64/bin/' | sort -u | while read -r dll; do
+done | sed 's#[\\]#/#g' | grep -Fi "$(cygpath -am /ucrt64/bin)/" | sort -u | while read -r dll; do
     cp -n "$(cygpath -u "$dll")" "$PKG/"
 done
 
@@ -42,7 +42,7 @@ cp "$SRC/readme.md" "$PKG/README.md"
 cp "$SRC/source_modules/omnicore_source/omnicore-host/LICENSE" "$PKG/LICENSE-OmniCore-Host.txt"
 cat > "$PKG/NOTICE.txt" <<NOTE
 OmniCore-SDR-SDRPlusPlus $VERSION - an independent fork of SDR++ (https://github.com/AlexandreRouma/SDRPlusPlus)
-with the OmniCore SDR source. Source: https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus (tag v$VERSION).
+with the OmniCore SDR source. Source: https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus (see the release tag for this build).
 SDR++ is GPL-3.0 (LICENSE.txt). OmniCore Host (omnicore.dll) is GPL-3.0-or-later (LICENSE-OmniCore-Host.txt),
 source https://github.com/Liren66/OmniCore-SDR-Host. libusbK.dll is from https://github.com/mcuee/libusbk (V3.1.0.0).
 Runtime DLLs are from MSYS2 UCRT64 packages (FFTW, VOLK, GLFW, zstd, RtAudio, librtlsdr, libhackrf, libusb, GCC runtime);
