@@ -83,6 +83,67 @@ jobs:
           path: release/*.deb
           if-no-files-found: error
 
+  macos:
+    runs-on: macos-15
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Install dependencies and build
+        run: |
+          brew install pkgconf fftw glfw volk zstd libusb portaudio hackrf codec2
+          cmake -S . -B build/mac -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DUSE_BUNDLE_DEFAULTS=ON -DOPT_BUILD_OMNICORE_SOURCE=ON -DOPT_BUILD_PORTAUDIO_SINK=ON \
+            -DOPT_BUILD_AUDIO_SINK=OFF -DOPT_BUILD_AUDIO_SOURCE=OFF -DOPT_BUILD_AIRSPY_SOURCE=OFF \
+            -DOPT_BUILD_AIRSPYHF_SOURCE=OFF -DOPT_BUILD_PLUTOSDR_SOURCE=OFF -DOPT_BUILD_RTL_SDR_SOURCE=OFF \
+            -DOPT_BUILD_M17_DECODER=ON -DOPT_BUILD_DISCORD_PRESENCE=OFF
+          cmake --build build/mac --parallel 3
+      - name: Package and test the macOS disk image
+        run: |
+          mkdir -p release
+          version=$(sed -n 's/^#define VERSION_STR "\(.*\)"/\1/p' core/src/version.h)
+          bash make_macos_bundle.sh "$PWD/build/mac" SDR++.app
+          app="SDR++.app/Contents"
+          cp license "$app/Resources/LICENSE-SDRPlusPlus"
+          cp source_modules/omnicore_source/omnicore-host/LICENSE "$app/Resources/LICENSE-OmniCore-Host"
+          for binary in "$app"/Frameworks/* "$app"/Plugins/* "$app"/MacOS/sdrpp; do
+            lipo "$binary" -verify_arch arm64
+            otool -L "$binary" | tail -n +2 | awk '{print $1}' | while read -r dep; do
+              case "$dep" in
+                /System/Library/*|/usr/lib/*) ;;
+                @rpath/*) test -f "$app/Frameworks/${dep#@rpath/}" || test "$(basename "$binary")" = "${dep#@rpath/}" ;;
+                *) echo "External reference in $binary: $dep"; exit 1 ;;
+              esac
+            done
+            codesign --force --sign - "$binary"
+          done
+          codesign --force --sign - SDR++.app
+          codesign --verify --deep --strict SDR++.app
+          python3 - <<'PY'
+          from ctypes import CDLL, c_char_p
+          from pathlib import Path
+          contents = Path("SDR++.app/Contents").resolve()
+          CDLL(str(contents / "Plugins/omnicore_source.dylib"))
+          och = CDLL(str(contents / "Frameworks/libomnicore.1.dylib"))
+          och.och_version.restype = c_char_p
+          assert och.och_version() == b"0.7.2"
+          PY
+          mkdir dmg
+          mv SDR++.app dmg/
+          ln -s /Applications dmg/Applications
+          image="release/OmniCore-SDR-SDRPlusPlus-$version-macos-arm64.dmg"
+          hdiutil create -volname 'OmniCore SDR++' -srcfolder dmg -format UDZO "$image"
+          hdiutil verify "$image"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: release/*.dmg
+          if-no-files-found: error
+
   android:
     runs-on: ubuntu-24.04
     steps:
@@ -93,10 +154,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - name: Install Android toolchain
         run: |
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.31.5'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.31.5'
           sudo apt-get -o Acquire::Retries=3 install -y patchelf python3-mako
       - name: Build native dependencies
         run: |

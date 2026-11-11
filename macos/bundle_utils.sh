@@ -67,39 +67,22 @@ bundle_get_exec_rpaths() {
 
 # bundle_find_full_path [dep_path] [exec_rpaths]
 bundle_find_full_path() {
-    # If path is relative to rpath, find the full path
-    local IS_RPATH_RELATIVE=$(echo $1 | grep @rpath/)
-    if [ "$IS_RPATH_RELATIVE" = "" ]; then
-        echo $1
-        return
-    fi
-
-    local RPATH_NEXT=$(echo $1 | cut -c 8-)
-
-    # Search in the exec's RPATH
-    echo "$2" | while read -r RPATH; do
-        # If not found, skip
-        if [ ! -f $RPATH/$RPATH_NEXT ]; then
-            continue
-        fi
-
-        # Correct dep path
-        echo $RPATH/$RPATH_NEXT
-        return -1
-    done
-
-    # Search other common paths
-    if [ -f /usr/local/lib/$RPATH_NEXT ]; then
-        echo /usr/local/lib/$RPATH_NEXT 
-        return
-    fi
-    if [ -f /Library/Frameworks/$RPATH_NEXT ]; then
-        echo /Library/Frameworks/$RPATH_NEXT 
-        return
-    fi
-
-    # Not found, give up
-    echo $1
+    local dep="$1" loader_dir="$3" dir candidate
+    case "$dep" in
+        @loader_path/*) echo "$loader_dir/${dep#@loader_path/}"; return ;;
+        @rpath/*)
+            while IFS= read -r dir; do
+                [ -n "$dir" ] || continue
+                dir="${dir/@loader_path/$loader_dir}"
+                candidate="$dir/${dep#@rpath/}"
+                if [ -f "$candidate" ]; then echo "$candidate"; return; fi
+            done <<< "$2"
+            for dir in /opt/homebrew/lib /usr/local/lib /Library/Frameworks; do
+                candidate="$dir/${dep#@rpath/}"
+                if [ -f "$candidate" ]; then echo "$candidate"; return; fi
+            done ;;
+    esac
+    echo "$dep"
 }
 
 # ========================= Public Functions =========================
@@ -141,11 +124,17 @@ bundle_install_binary() {
     # Copy it to its install location
     cp $3 $EXEC_DEST
     
+    if [[ "$EXEC_NAME" == *.dylib ]]; then
+        chmod u+w "$EXEC_DEST"
+        install_name_tool -id "@rpath/$EXEC_NAME" "$EXEC_DEST"
+    fi
+
     # Install dependencies and change path
     local DEPS=$(bundle_get_exec_deps $EXEC_DEST)
     echo "$DEPS" | while read -r DEP; do
         local DEP_NAME=$(basename $DEP)
 
+        case "$DEP" in /usr/lib/*|/System/Library/*) continue ;; esac
         # Skip if this dep is blacklisted
         local NOT_TO_BE_INSTALLED=$(bundle_is_not_to_be_installed $DEP_NAME)
         if [ "$NOT_TO_BE_INSTALLED" = "1" ]; then
@@ -157,7 +146,7 @@ bundle_install_binary() {
             continue
         fi
 
-        local DEP_PATH=$(bundle_find_full_path $DEP $RPATHS)
+        local DEP_PATH=$(bundle_find_full_path "$DEP" "$RPATHS" "$(dirname "$3")")
 
         # If the dependency is not installed, install it, and if the install fails, skip
         if [ ! -f $1/Contents/Frameworks/$DEP_NAME ]; then

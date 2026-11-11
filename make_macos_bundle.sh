@@ -30,6 +30,12 @@ bundle_create_plist sdrpp SDR++ org.sdrpp.sdrpp 1.3.2 sdrp sdrpp sdrpp $BUNDLE/C
 bundle_install_binary $BUNDLE $BUNDLE/Contents/MacOS $BUILD_DIR/sdrpp 
 bundle_install_binary $BUNDLE $BUNDLE/Contents/Frameworks $BUILD_DIR/core/libsdrpp_core.dylib
 
+# Install OmniCore Host before its plugin so the bundle uses the versioned install name.
+if [ -f "$BUILD_DIR/source_modules/omnicore_source/omnicore_source.dylib" ]; then
+    bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/Frameworks" "$BUILD_DIR/source_modules/omnicore_source/libomnicore.1.dylib"
+    bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/Plugins" "$BUILD_DIR/source_modules/omnicore_source/omnicore_source.dylib"
+fi
+
 # Source modules
 bundle_install_binary $BUNDLE $BUNDLE/Contents/Plugins $BUILD_DIR/source_modules/airspy_source/airspy_source.dylib || true
 bundle_install_binary $BUNDLE $BUNDLE/Contents/Plugins $BUILD_DIR/source_modules/airspyhf_source/airspyhf_source.dylib || true

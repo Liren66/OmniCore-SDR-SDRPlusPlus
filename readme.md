@@ -4,7 +4,7 @@
 
 This is an independent fork of SDR++ with a native OmniCore SDR (AD9361) source through OmniCore Host. Everything else is upstream SDR++.
 
-- [下载 Windows / Linux / Android 1.3.2](https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus/releases/tag/v1.3.2-och0.7.2)
+- [下载 Windows / Linux / macOS / Android 1.3.2](https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus/releases/tag/v1.3.2-och0.7.2)
 - [OmniCore Host 驱动库](https://github.com/Liren66/OmniCore-SDR-Host)
 - [上游 SDR++ 完整说明（英文）](readme.upstream.md)
 
@@ -17,6 +17,7 @@ This is an independent fork of SDR++ with a native OmniCore SDR (AD9361) source 
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64-setup.exe` | Windows 10/11 x64 | 安装版，可同时安装 USB 驱动，含 OmniCore Host 0.7.2 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64.zip` | Windows 10/11 x64 | 免安装版，解压即用 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-ubuntu-noble-amd64.deb` | Ubuntu 24.04 x86-64 | 含 `libomnicore` 与 udev 规则 |
+| `OmniCore-SDR-SDRPlusPlus-1.3.2-macos-arm64.dmg` | macOS 15+，Apple Silicon | 将 SDR++.app 拖到 Applications，内含 OmniCore Host |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-android-arm64-v8a.apk` | Android 9+ ARM64，需 USB Host/OTG | USB 直连，无需 root |
 
 ## OmniCore SDR 源
