@@ -28,7 +28,7 @@ android {
         applicationId 'io.github.liren66.omnicore.sdrpp'
         minSdk 28
         targetSdk 28
-        versionCode (vParts[0] * 10000 + vParts[1] * 100 + vParts[2]) * 100 + 1
+        versionCode = (vParts[0] * 10000 + vParts[1] * 100 + vParts[2]) * 100 + 1
         versionName sdrppVersion
 
         ndk {
