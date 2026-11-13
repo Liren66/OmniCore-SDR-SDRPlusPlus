@@ -132,7 +132,7 @@ jobs:
           CDLL(str(contents / "Plugins/omnicore_source.dylib"))
           och = CDLL(str(contents / "Frameworks/libomnicore.1.dylib"))
           och.och_version.restype = c_char_p
-          assert och.och_version() == b"0.7.2"
+          assert och.och_version() == b"0.8.0"
           PY
           mkdir dmg
           mv SDR++.app dmg/

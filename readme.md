@@ -4,17 +4,17 @@
 
 This is an independent fork of SDR++ with a native OmniCore SDR (AD9361) source through OmniCore Host. Everything else is upstream SDR++.
 
-- [下载 Windows / Linux / macOS / Android 1.3.2](https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus/releases/tag/v1.3.2-och0.7.2)
+- [下载 Windows / Linux / macOS / Android 1.3.2](https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus/releases/tag/v1.3.2-och0.8.0)
 - [OmniCore Host 驱动库](https://github.com/Liren66/OmniCore-SDR-Host)
 - [上游 SDR++ 完整说明（英文）](readme.upstream.md)
 
-版本号与上游 SDR++ 保持一致，当前为 **1.3.2**。发行标签另标内置 OCH 版本，本次为 `v1.3.2-och0.7.2`。
+版本号与上游 SDR++ 保持一致，当前为 **1.3.2**。发行标签另标内置 OCH 版本，本次为 `v1.3.2-och0.8.0`。
 
-> **固件要求**：内置 OmniCore Host **0.7.2**，适配固件 [v2026.11.08](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.08)（以及 v2026.11.07 起的成帧 USB 传输固件）。v2026.11.07 之前的旧固件需要先升级，旧版程序（内置 OCH 0.5.0）则无法打开新固件。板子运行 [OmniCore SDR Linux](https://github.com/Liren66/OmniCore-SDR-Linux) 1.3.x 时固件已包含在镜像中。
+> **固件要求**：内置 OmniCore Host **0.8.0**，适配固件 [v2026.11.08](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.08)（以及 v2026.11.07 起的成帧 USB 传输固件）。v2026.11.07 之前的旧固件需要先升级，旧版程序（内置 OCH 0.5.0）则无法打开新固件。板子运行 [OmniCore SDR Linux](https://github.com/Liren66/OmniCore-SDR-Linux) 1.3.x 时固件已包含在镜像中。
 
 | 发布包 | 平台 | 说明 |
 | --- | --- | --- |
-| `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64-setup.exe` | Windows 10/11 x64 | 安装版，可同时安装 USB 驱动，含 OmniCore Host 0.7.2 |
+| `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64-setup.exe` | Windows 10/11 x64 | 安装版，可同时安装 USB 驱动，含 OmniCore Host 0.8.0 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-windows-x64.zip` | Windows 10/11 x64 | 免安装版，解压即用 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-ubuntu-noble-amd64.deb` | Ubuntu 24.04 x86-64 | 含 `libomnicore` 与 udev 规则 |
 | `OmniCore-SDR-SDRPlusPlus-1.3.2-macos-arm64.dmg` | macOS 15+，Apple Silicon | 将 SDR++.app 拖到 Applications，内含 OmniCore Host |
@@ -69,7 +69,7 @@ Android 版包含 OmniCore SDR 源和网络类源（rtl_tcp、SpyServer、SDR++ 
 
 ## 从源码构建
 
-OmniCore Host 以 git 子模块形式引入（`source_modules/omnicore_source/omnicore-host`，固定在 0.7.2），编译时一起构建：
+OmniCore Host 以 git 子模块形式引入（`source_modules/omnicore_source/omnicore-host`，固定在 0.8.0），编译时一起构建：
 
 ```bash
 git clone --recursive https://github.com/Liren66/OmniCore-SDR-SDRPlusPlus.git

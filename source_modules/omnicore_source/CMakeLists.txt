@@ -82,7 +82,7 @@ else ()
     pkg_check_modules(OCH_LIBUSB REQUIRED IMPORTED_TARGET libusb-1.0>=1.0.21)
     target_link_libraries(omnicore PRIVATE PkgConfig::OCH_LIBUSB)
     set_target_properties(omnicore PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES
-        VERSION 0.7.2 SOVERSION 1)
+        VERSION 0.8.0 SOVERSION 1)
     install(TARGETS omnicore LIBRARY DESTINATION lib)
     if (APPLE)
         target_link_libraries(omnicore PRIVATE "-framework IOKit" "-framework CoreFoundation")
